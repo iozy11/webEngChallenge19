@@ -13,13 +13,13 @@
 
 <body>
 <div id='banner'>Toronto Waste Lookup</div>
-
 <div id='searchBox'>
     <input type='text' id='searchBar' name='searchBar'>
     <div id='searchIcon'>
         <button  type='button' id='search'> <i class="fa fa-search fa-flip-horizontal" aria-hidden="true" style='width: 1em'></i></button>
+        
         <script>
-        //Create event listener clicking search icon, NB listener needs brackets off or else it runs on pageload
+        //Create event listener clicking search icon
         document.getElementById('search').addEventListener('click', loadGarbage);
         //create event listener for keydown, call loadGarbage if enterkey is pressed in searchBar
         document.getElementById('searchBar').addEventListener('keydown', function checkKeyPress(x){
@@ -30,31 +30,50 @@
         
         function loadGarbage(){
             let searchText = searchBar.value;
-            console.log(searchText);
             //Create XHR
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'https://secure.toronto.ca/cc_sr_v1/data/swm_waste_wizard_APR?limit=1000', true);
+            
+            
             xhr.onload = function(){
-                json = JSON.parse(xhr.responseText);
-                var garbList = '';
-                /*TODO: search through json[i].keywords for searchText,
-                for each entry that matches, append garbList with a 2-column div containing json[i].title : json[i].body,
-                create a css class of div that will contain these columns*/
-                
-                
-                
+                if (this.status == 200){
+                    json = JSON.parse(xhr.responseText);
+                    var garbList = '';
+                    console.log(json.length);
+                    for (let i = 0; i < json.length; i++){
+                        if (json[i].body.includes(searchText)){
+                            garbList += `
+                        <div class='list'>
+                        <div class='listObj'><i class='fa fa-star'></i>${json[i].title}</div>
+                        <div class='listObj'>` + new DOMParser().parseFromString(json[i].body, 'text/html').documentElement.textContent+`</div>
+                        </div>
+                        `;
+                        document.getElementById('garboBin').innerHTML = garbList;
+                        }
+                    
+                    }
+                    
+
+                }
             }
+                
+                
+                
+            
             xhr.onerror = function(){
-                console.log('XHR request error')
+                if (this.status == 404){
+                    console.log('Connection to database interrupted');
+                }
             }
             xhr.send();
-        }
+            }
 
         </script>
-        <div id="garbo"></div>
     </div>
-</div>
 
+
+</div>
+<div id="garboBin"></div>
 
 
 
