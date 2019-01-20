@@ -19,7 +19,11 @@
         <button  type='button' id='search'> <i class="fa fa-search fa-flip-horizontal" aria-hidden="true" style='width: 1em'></i></button>
         
         <script>
-        //Create event listener clicking search icon
+        //Arrays to 1) save values that have been searched for and displayed, & 2) another to save favs
+        var loadedArray = [];
+        var favArray = [];
+
+        //Create event listener clicking search icon, invoked loadGarbage
         document.getElementById('search').addEventListener('click', loadGarbage);
         //create event listener for keydown, call loadGarbage if enterkey is pressed in searchBar
         document.getElementById('searchBar').addEventListener('keydown', function checkKeyPress(x){
@@ -27,39 +31,90 @@
                 loadGarbage();
             }    
         });
+
+        //Event listener that will clear found entries once text field is cleared
+        document.getElementById('searchBar').addEventListener('keyup', function checkTextField(x){
+            if((x.which === 8 || x.which === 46 ) && searchBar.value == ''){
+                garbList = '';
+                document.getElementById('garboBin').innerHTML = garbList;
+                loadedArray = [];
+            }
+            
+        })
         
+        //Event listener that will fave something or unfave something
+        document.querySelector('body').addEventListener('click', function checkStar(x){
+            if(x.target.className === 'fa fa-star' && x.target.parentElement.className.includes('garbObj')){
+                x.target.className = 'fa fa-star favStar';
+                favUnfav(x.target.id);
+            }
+            else if(x.target.className === 'fa fa-star favStar' && x.target.parentElement.className.includes('favObj')){
+                favUnfav(x.target.id);
+                if (favArray.length <1){
+                    favList = '';
+                    document.getElementById('favBin').innerHTML = favList;
+                }
+            }
+        })
+
         function loadGarbage(){
             let searchText = searchBar.value;
             //Create XHR
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'https://secure.toronto.ca/cc_sr_v1/data/swm_waste_wizard_APR?limit=1000', true);
-            
-            
+            //create object from JSON, add search items to page
             xhr.onload = function(){
                 if (this.status == 200){
                     json = JSON.parse(xhr.responseText);
                     var garbList = '';
-                    console.log(json.length);
                     for (let i = 0; i < json.length; i++){
-                        if (json[i].body.includes(searchText)){
-                            garbList += `
-                        <div class='list'>
-                        <div class='listObj'><i class='fa fa-star'></i>${json[i].title}</div>
-                        <div class='listObj'>` + new DOMParser().parseFromString(json[i].body, 'text/html').documentElement.textContent+`</div>
+                        //This loop is called when there are favorites
+                        //Brings back already favorited elements as green stars (favStar)
+                        if(favArray.length > 0){
+                            for(j = 0; j < favArray.length; j++){
+                                if(json[i].keywords.includes(searchText) && json[i].title == favArray[j].title){
+                                    loadedArray.push(json[i]);
+                                    garbList += `
+                                    <div class='list garbObj>
+                                    <div class='garbObj><i class='fa fa-star favStar' id='${json[i].title}'></i>${json[i].title}</div>
+                                    <div>` + new DOMParser().parseFromString(json[i].body, 'text/html').documentElement.textContent + `</div>
+                                    </div>`;
+                                
+                                }
+                                //Loads unfavorited elements as regular grey stars
+                                else if (json[i].keywords.includes(searchText) && json[i].title != favArray[j].title && j == favArray.length -1){
+                                    loadedArray.push(json[i]);
+                                garbList += `
+                                    <div class='list garbObj>
+                                    <div class='garbObj><i class='fa fa-star' id='${json[i].title}'></i>${json[i].title}</div>
+                                    <div>` + new DOMParser().parseFromString(json[i].body, 'text/html').documentElement.textContent + `</div>
+                                    </div>
+                                    `;
+                        
+                                }
+                                else {
+                                    continue;
+                                }
+
+                            }
+                        }
+                        //Loads matched search-term containing items to an empty garbList
+                        else { 
+                            if (json[i].keywords.includes(searchText)) {
+                                loadedArray.push(json[i]);
+                                garbList += `
+                        <div class='list garbObj>
+                        <div class='garbObj><i class='fa fa-star' id='${json[i].title}'></i>${json[i].title}</div>
+                        <div>` + new DOMParser().parseFromString(json[i].body, 'text/html').documentElement.textContent + `</div>
                         </div>
                         `;
-                        document.getElementById('garboBin').innerHTML = garbList;
+                            }
                         }
-                    
-                    }
-                    
-
+                    } 
+                    document.getElementById('garboBin').innerHTML = garbList;
                 }
             }
-                
-                
-                
-            
+            //Connection to JSON failure state
             xhr.onerror = function(){
                 if (this.status == 404){
                     console.log('Connection to database interrupted');
@@ -68,14 +123,65 @@
             xhr.send();
             }
 
+        function favUnfav(idName) {
+            //Push fav onto an empty favArray
+            if(favArray.length < 1){
+                for(let i = 0; i < loadedArray.length; i++){
+                    if(loadedArray[i].title == idName){
+                        favArray.push(loadedArray[i]);
+                        updateFavs();
+                        return;
+                    }
+                }
+                
+            }
+            //Loop initiates if there are favorites
+            while(favArray.length > 0){
+                for (let i = 0; i < favArray.length; i++) {
+                    for(let j = 0; j < loadedArray.length; j++){
+                        //If you are pressing a faved item, it is spliced from the favorite-containing array
+                        if(favArray[i].title == idName){
+                        favArray.splice(i, 1);
+                        updateFavs();
+                        loadGarbage();
+                        return;
+                        }
+                        //If you are pressing a grey-star, non-faved item, it is added to the favArray
+                        else if(i == favArray.length -1 && loadedArray[j].title == idName){
+                        favArray.push(loadedArray[j]);
+                        updateFavs();
+                        return;
+                        }
+                        else{
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        //Updates the section that contains the favorites with whatever is loaded into the favArray
+        function updateFavs(){
+            var favList = '<div>    Favorites</div>';
+            for(let i = 0; i < favArray.length; i++){
+                favList += `
+                        <div class='list favObj'>
+                        <div class='favObj'><i class='fa fa-star favStar' id='${favArray[i].title}'></i>${favArray[i].title}</div>
+                        <div class='favObj'>` + new DOMParser().parseFromString(favArray[i].body, 'text/html').documentElement.textContent+`</div>
+                        </div>
+                        `;
+                    
+            }
+            document.getElementById('favBin').innerHTML = favList;
+        }
+            
+        
+        
         </script>
     </div>
 
 
 </div>
-<div id="garboBin"></div>
 
-
-
-
+<div id='garboBin' class='garboBin'></div>
+<div id='favBin' class='favBin'><div></div></div>
 </body>
